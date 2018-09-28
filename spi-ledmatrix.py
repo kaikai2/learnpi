@@ -1,3 +1,10 @@
+# Chip : Pi
+# VCC = G2/G4 (5V)
+# CLK = G23 (GPIO11 SPIO_SCLK)
+# CE = G24 (GPIO8 SPIO_CE0_N)
+# MOSI = G19 (GPIO10 SPIO_MOSI)
+# GND = G6 (Ground)
+
 import spidev
 import time
 spi=spidev.SpiDev()
