@@ -25,8 +25,11 @@ def trigHC_hr04():
     GPIO.output(pinTrig, GPIO.HIGH)
     time.sleep(0.000010)
     GPIO.output(pinTrig, GPIO.LOW)
+    channel = GPIO.wait_for_edge(pinEcho, GPIO.FALLING, timeout=5000)
+    if channel is None:
+        return 0
     begin = time.time()
-    channel = GPIO.wait_for_edge(pinEcho, GPIO_RISING, timeout=5000)
+    channel = GPIO.wait_for_edge(pinEcho, GPIO.RISING, timeout=5000)
     if channel is None:
         return 0
     return 340 / (time.time() - begin)
@@ -43,7 +46,7 @@ def init_audio(rate=8000):
             channels=1,
             rate=rate,
             format=pyaudio.paInt16,
-            output_device_index=pa.get_default_output_device_info()['index']])
+            output_device_index=pa.get_default_output_device_info()['index'])
   print "init_audio: audio stream initialized"
 
 
@@ -74,10 +77,16 @@ def main():
     initHC_hr04()
 
     try:
+        i = 0
         while True:
+            i +=1
             distance = trigHC_hr04()
-            if distance > 0.1: # more than 10 cm                
+            print(distance)
+            if distance > 0.1: # more than 10 cm 
                 tone(distance * 440)
-    except e:
+    except Exception as e:
         GPIO.cleanup()
         close_audio()
+        print(e)
+
+main()
