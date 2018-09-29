@@ -11,7 +11,10 @@ import pyaudio
 import time
 import math
 from numpy import linspace,sin,pi,int16
-
+import numpy
+import threading
+import bisect
+import random
 
 def initHC_hr04():
     GPIO.setmode(GPIO.BOARD)
@@ -63,20 +66,57 @@ def close_audio():
 
 def note(freq, len, amp=5000, rate=8000):
  t = linspace(0,len,len*rate)
- data = sin(2*pi*freq*t)*amp
+ l1 = len*rate * 0.1
+ l2 = len*rate * 0.5
+ l3 = len*rate - l1-l2
+ ampk = numpy.concatenate((linspace(0,1,l1), linspace(1,0.8,l2), linspace(0.8,0,l3)))
+ data = sin(2*pi*freq*t)*ampk*amp
  return data.astype(int16) # two byte integers                                                                      
 
 def tone(freq=440.0, tonelen=0.5, amplitude=5000, rate=8000):
   global s
   # generate sound
   tone = note(freq, tonelen, amplitude, rate)
-
   s.write(tone)
 
+halfStep = 2 ** (1.0/12)
+tuneFreq = [440 * (halfStep ** p) for p in range(-12*2, 12*2)]
+print(tuneFreq)
+def alignToTone(freq):
+    global tuneFreq
+    i = bisect.bisect_left(tuneFreq, freq)
+    if i < len(tuneFreq):
+        return tuneFreq[i]
+    return 440.0
 
+class ToneThread(threading.Thread):
+    def __init__(self):
+        self.freq = 0
+        self.exit = False
+        init_audio()
+        threading.Thread.__init__(self)
+        
+    def run(self):
+        curFreq = 0
+        try:
+            while not self.exit:
+                playFreq = alignToTone(curFreq)
+                tone(playFreq, 0.5 * [1,2,4][int(random.random() * 3)] )
+                print(self.freq, curFreq, playFreq)
+                curFreq = (curFreq + self.freq) / 2.0
+                #if self.freq > curFreq:
+                #    curFreq += 1
+                #else:
+                #    curFreq -= 1
+        except Exception as e:
+            print(e)
+        finally:
+            close_audio()
+            
 def main():
-    init_audio()
+    tuneThread = ToneThread()
 
+    tuneThread.start();
     initHC_hr04()
 
     try:
@@ -85,15 +125,16 @@ def main():
             i +=1
             distance = trigHC_hr04(10)
             freq = -1
-            if distance > 0.1 and distance < 1.9: # more than 10 cm
-                freq = (distance / 2) * (4186 - 27.5) + 27.5
-                tone(freq, 0.1)
-            print(distance, freq)
+            if distance > 0.1 and distance < 5: # more than 10 cm
+                freq = (distance / 5) * (4186 - 27.5) + 27.5
+                tuneThread.freq = freq
+            #print(distance, freq)
     except Exception as e:
         print(e)
     finally:
         GPIO.cleanup()
-        close_audio()
+        tuneThread.exit = True
+        tuneThread.join()
 
 
 main()
