@@ -19,20 +19,23 @@ def initHC_hr04():
     GPIO.setup(pinTrig, GPIO.OUT)
     GPIO.setup(pinEcho, GPIO.IN)
 
-def trigHC_hr04():
+def trigHC_hr04(maxDistance):
     GPIO.output(pinTrig, GPIO.LOW)
     time.sleep(0.000005)
     GPIO.output(pinTrig, GPIO.HIGH)
     time.sleep(0.000010)
     GPIO.output(pinTrig, GPIO.LOW)
-    channel = GPIO.wait_for_edge(pinEcho, GPIO.FALLING, timeout=5000)
+
+    timeout = int(maxDistance / 171.5 * 1000)
+    
+    channel = GPIO.wait_for_edge(pinEcho, GPIO.RISING, timeout=timeout)
     if channel is None:
         return 0
     begin = time.time()
-    channel = GPIO.wait_for_edge(pinEcho, GPIO.RISING, timeout=5000)
+    channel = GPIO.wait_for_edge(pinEcho, GPIO.FALLING, timeout=timeout)
     if channel is None:
         return 0
-    return 340 / (time.time() - begin)
+    return 171.5 * (time.time() - begin)
 
 pa = None;
 s = None;
@@ -80,13 +83,17 @@ def main():
         i = 0
         while True:
             i +=1
-            distance = trigHC_hr04()
-            print(distance)
-            if distance > 0.1: # more than 10 cm 
-                tone(distance * 440)
+            distance = trigHC_hr04(10)
+            freq = -1
+            if distance > 0.1 and distance < 1.9: # more than 10 cm
+                freq = (distance / 2) * (4186 - 27.5) + 27.5
+                tone(freq, 0.1)
+            print(distance, freq)
     except Exception as e:
+        print(e)
+    finally:
         GPIO.cleanup()
         close_audio()
-        print(e)
+
 
 main()
